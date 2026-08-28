@@ -1,27 +1,13 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ANGVEY — Loading</title>
-<style>body{margin:0;background:#0D0D0F;color:#A78BFA;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh}
-.box{text-align:center}.spin{width:28px;height:28px;border:2px solid #2D2D30;border-top-color:#8B5CF6;border-radius:50%;animation:s .7s linear infinite;margin:0 auto 12px}
-@keyframes s{to{transform:rotate(360deg)}}</style></head><body>
-<div class="box"><div class="spin"></div><div>Loading ANGVEY…</div></div>
-<script>
-(async () => {
-  const n = 13;
-  const parts = [];
-  for (let i = 0; i < n; i++) {
-    const r = await fetch('p' + i + '.txt');
-    parts.push(await r.text());
-  }
-  const b64 = parts.join('');
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const html = new TextDecoder().decode(bytes);
-  document.open();
-  document.write(html);
-  document.close();
-})().catch(e => {
-  document.body.innerHTML = '<div class="box"><p>Failed to load ANGVEY</p><pre style="color:#F87171;font-size:12px">' + e + '</pre></div>';
-});
-</script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ANGVEY — AI Partner</title>
+<script>location.replace('./ANGVEY-browserbase%20(1).html');</script>
+<meta http-equiv="refresh" content="0;url=./ANGVEY-browserbase%20(1).html"/>
+</head>
+<body style="margin:0;background:#0D0D0F;color:#A78BFA;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh">
+Loading ANGVEY…
+</body>
+</html>
