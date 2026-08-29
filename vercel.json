@@ -1,6 +1,8 @@
 {
   "rewrites": [
-    { "source": "/bb-proxy/v1/:path*", "destination": "/api/bb/:path*" }
+    { "source": "/api/bb", "destination": "/api/bb-proxy?p=" },
+    { "source": "/api/bb/:path*", "destination": "/api/bb-proxy?p=:path*" },
+    { "source": "/bb-proxy/v1/:path*", "destination": "/api/bb-proxy?p=:path*" }
   ],
   "headers": [
     {
