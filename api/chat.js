@@ -29,6 +29,15 @@ export default async function handler(req, res) {
   // Never accept client-supplied keys
   delete body.api_key;
 
+  /* Free-tier: prefer model with highest daily token budget available on this key.
+     qwen/qwen3.8-27b ≈ 2M TPD vs gpt-oss-120b ≈ 200K TPD (same 30 RPM / 1K RPD).
+     Vision requests keep a vision-capable model. */
+  const FREE_CHAT_MODEL = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
+  const FREE_VISION_MODEL = process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b";
+  const msgs = Array.isArray(body.messages) ? body.messages : [];
+  const hasVision = msgs.some(m => Array.isArray(m?.content) && m.content.some(p => p?.type === "image_url"));
+  body.model = hasVision ? FREE_VISION_MODEL : FREE_CHAT_MODEL;
+
   const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
