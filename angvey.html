@@ -1005,7 +1005,7 @@ async function chatStream(messages, system, signal) {
     method: 'POST', signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model, max_tokens: 2048, temperature: 0.72, stream: true,
+      model, max_tokens: 1024, temperature: 0.72, stream: true,
       messages: [{ role: 'system', content: system }, ...finalMessages],
     }),
   });
@@ -2703,7 +2703,7 @@ async function clientFetchPage(url) {
     if (res.ok) {
       const text = await res.text();
       if (text && text.length > 20) {
-        return { source: 'jina', title: '', content: text.slice(0, 12000), url };
+        return { source: 'jina', title: '', content: text.slice(0, 3500), url };
       }
     }
   } catch (_) {}
@@ -2715,7 +2715,7 @@ async function clientFetchPage(url) {
       const j = await res.json();
       const d = j.data || {};
       const content = [d.title && '# ' + d.title, d.description, d.url].filter(Boolean).join('\n\n');
-      if (content) return { source: 'microlink', title: d.title || '', content: content.slice(0, 8000), url };
+      if (content) return { source: 'microlink', title: d.title || '', content: content.slice(0, 2500), url };
     }
   } catch (_) {}
 
@@ -2730,7 +2730,7 @@ async function clientFetchPage(url) {
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
-        .slice(0, 10000);
+        .slice(0, 3500);
       if (text.length > 40) return { source: 'allorigins', title: '', content: text, url };
     }
   } catch (_) {}
@@ -2993,21 +2993,29 @@ async function runClientBrowseAgent(task, panel) {
     panel.addAction('Form fill requested · drafting field values from the page (live submit needs cloud browser)', 'form');
   }
 
-  const context = pageBlocks.length
+  /* Hard cap context — free Groq tier is ~8K TPM; leave room for system + reply */
+  let context = pageBlocks.length
     ? pageBlocks.join('\n\n---\n\n')
     : '(No page content fetched. Answer from general knowledge if possible.)';
+  const MAX_CTX = 2800; /* ~700-900 tokens */
+  if (context.length > MAX_CTX) {
+    context = context.slice(0, MAX_CTX) + '\n\n[…truncated for rate limits…]';
+    panel.addAction('Truncated page text for free-tier token limit', 'default');
+  }
 
   const sysExtra = isFormFillTask(task)
     ? 'The user wants form help. From the page content, list each field and the value to enter. Be explicit that you cannot press Submit in the real browser from this single-file mode.'
-    : 'Use the page content below as primary evidence. Quote concrete facts from it.';
+    : 'Use the page content below as primary evidence. Quote concrete facts from it. Be concise.';
 
-  const payload = `${task}\n\n[Browsed page content]\n${context}\n\n[${sysExtra}]`;
+  const payload = `${task}\n\n[Browsed page content — key excerpts only]\n${context}\n\n[${sysExtra}]`;
 
   panel.setStatus('Analyzing with ANGVEY…', 'Groq');
   panel.addAction('Reasoning over page content', 'extract');
 
   /* Use page context for the API call; keep hist user turn as the clean task */
-  const apiHist = hist.slice(0, -1).concat([{ role: 'user', content: payload }]);
+  /* Only last user turn + short history — avoid blowing TPM */
+  const prior = hist.slice(0, -1).filter(m => typeof m.content === 'string').slice(-2);
+  const apiHist = prior.concat([{ role: 'user', content: payload }]);
   let fullText = '';
   try {
     ctrl = new AbortController();
