@@ -1,8 +1,6 @@
 /**
- * Browserbase proxy — keys stay server-side.
- * Client: /api/bb/agents/runs  → rewrite → /api/bb-proxy?p=agents/runs
- * Upstream: https://api.browserbase.com/v1/...
- * Auth: X-BB-API-Key
+ * Browserbase pass-through proxy.
+ * /api/bb/:path* → https://api.browserbase.com/v1/:path*
  */
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
@@ -14,15 +12,16 @@ export default async function handler(req, res) {
 
   const key = process.env.BROWSERBASE_API_KEY;
   if (!key) {
-    return res.status(500).json({ error: "BROWSERBASE_API_KEY not configured on Vercel" });
+    return res.status(500).json({
+      error: "BROWSERBASE_API_KEY not configured on Vercel",
+      hint: "Dashboard → Settings → API Key",
+    });
   }
 
-  // path from rewrite query (?p=agents/runs) or leftover url
   let rel = (req.query.p || req.query.path || "").toString();
   if (Array.isArray(req.query.p)) rel = req.query.p.join("/");
   rel = rel.replace(/^\/+/, "");
 
-  // drop our own query keys when forwarding
   const incoming = new URL(req.url, "http://localhost");
   incoming.searchParams.delete("p");
   incoming.searchParams.delete("path");
@@ -44,9 +43,16 @@ export default async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "HEAD") {
     let raw = req.body;
     if (raw && typeof raw === "object") {
-      // Inject projectId when creating sessions if missing
       if (rel === "sessions" && process.env.BROWSERBASE_PROJECT_ID && !raw.projectId) {
         raw = { ...raw, projectId: process.env.BROWSERBASE_PROJECT_ID };
+      }
+      if (rel === "agents/runs" || rel.startsWith("agents/runs")) {
+        if (!raw.browserSettings) {
+          raw = { ...raw, browserSettings: { proxies: true } };
+        }
+        if (process.env.BROWSERBASE_PROJECT_ID && !raw.projectId) {
+          raw = { ...raw, projectId: process.env.BROWSERBASE_PROJECT_ID };
+        }
       }
       body = JSON.stringify(raw);
     } else if (typeof raw === "string") {
