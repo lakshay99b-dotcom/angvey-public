@@ -38,6 +38,25 @@ export default async function handler(req, res) {
   const hasVision = msgs.some(m => Array.isArray(m?.content) && m.content.some(p => p?.type === "image_url"));
   body.model = hasVision ? FREE_VISION_MODEL : FREE_CHAT_MODEL;
 
+  /* Free tier ~8K TPM. Cap message sizes so browse/search payloads don't 429. */
+  const MAX_MSG_CHARS = 4000;
+  if (Array.isArray(body.messages)) {
+    body.messages = body.messages.map((m, i) => {
+      if (!m || typeof m.content !== "string") return m;
+      /* Keep system prompt shorter too */
+      const cap = m.role === "system" ? 2500 : (i === body.messages.length - 1 ? MAX_MSG_CHARS : 1500);
+      if (m.content.length <= cap) return m;
+      return { ...m, content: m.content.slice(0, cap) + "\n\n[…truncated…]" };
+    });
+    /* Keep only last 8 non-system messages + system */
+    const sys = body.messages.filter(m => m.role === "system");
+    const rest = body.messages.filter(m => m.role !== "system").slice(-8);
+    body.messages = [...sys.slice(0, 1), ...rest];
+  }
+  if (typeof body.max_tokens === "number" && body.max_tokens > 1024) {
+    body.max_tokens = 1024;
+  }
+
   const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
