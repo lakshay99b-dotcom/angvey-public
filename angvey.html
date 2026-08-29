@@ -872,7 +872,7 @@ select.fi option{background:#1C1C1F;color:#F4F4F5}
             </div>
           </div>
         </div>
-        <p class="wm mt-2">ANGVEY · openai/gpt-oss-120b · Groq</p>
+        <p class="wm mt-2">ANGVEY · qwen/qwen3.8-27b · Groq</p>
       </div>
     </div>
   </div><!-- end chat-area -->
@@ -949,7 +949,7 @@ let _SEED = null;  /* keys moved to Vercel env via /api/chat */
 /* Runtime key — loaded from IndexedDB, never a plain JS const */
 let _apiKey = null;
 
-const GROQ_MODEL        = 'openai/gpt-oss-120b';
+const GROQ_MODEL        = 'qwen/qwen3.8-27b';
 const GROQ_VISION_MODEL = 'qwen/qwen3.6-27b';
 
 function getISTDateTime() {
@@ -1135,7 +1135,7 @@ function unlock() {
 /* ══════════════════
    SYSTEM PROMPT
 ══════════════════ */
-const _brandCtx = `\n\nIDENTITY: You are ANGVEY, an AI product built and owned by Angvey International, founded by Lakshay Boora (Founder & CEO). If asked who made you, who owns you, or what company you belong to, answer with this directly and confidently — you are not a generic AI assistant, you are ANGVEY by Angvey International.`;
+const _brandCtx = `\n\nIDENTITY: You are ANGVEY, an AI product built and owned by Angvey International, founded by Lakshay Boora (Founder & CEO). If asked who made you, who owns you, or what company you belong to, answer with this directly and confidently — you are not a generic AI assistant, you are ANGVEY by Angvey International.\n\nLIVE WEB CAPABILITY: ANGVEY can search the live web and open real websites (headlines, articles, pages) via built-in tools. When the user asks for current news, headlines, or content from a site, the app fetches it for you — never say you cannot access websites, browse the internet, or fetch live headlines. If search results or page content are provided in the conversation context, use them as primary evidence and cite them. If no live context is present, answer helpfully from knowledge and still do not claim a permanent inability to browse.`;
 
 function buildSys(p) {
   const now = getISTDateTime();
@@ -2394,8 +2394,13 @@ send = async function(rawText) {
   attachments = [];
   renderPreviews();
 
+  /* Auto-enable live search for current news / headlines / “what’s happening” */
+  const looksLikeNewsQuery = /\b(headline|headlines|breaking news|latest news|today'?s news|current (news|events)|what'?s happening|live updates?)\b/i.test(text)
+    || /\b(news|headlines?)\s+(from|on|about)\b/i.test(text);
+  const effectiveWebSearch = webSearchOn || looksLikeNewsQuery;
+
   /* ── Web-search path: immediate UI, then search, then AI ── */
-  if (webSearchOn) {
+  if (effectiveWebSearch) {
     if (!activeId) {
       const id  = Date.now().toString();
       const ttl = text.length > 46 ? text.slice(0,43)+'…' : text;
@@ -2614,10 +2619,40 @@ bbBtn?.addEventListener('click', () => {
 
 function looksLikeBrowserTask(text) {
   const t = (text || '').toLowerCase();
-  return /\b(fill\s+(out\s+)?(the\s+)?form|submit\s+(the\s+)?form|sign\s*up|register|log\s*in|login|book\s+(a\s+)?|checkout|navigate\s+to|go\s+to\s+https?:|open\s+(the\s+)?(page|site|url)|browse\s+|click\s+(on\s+)?|type\s+into|extract\s+from\s+(the\s+)?(page|site)|scrape\s+|on\s+this\s+(page|site|url)|https?:\/\/[^\s]+.*(fill|form|submit|sign|register))\b/i.test(t)
+  /* Explicit URLs */
+  if (/https?:\/\/[^\s]+/i.test(t)) return true;
+  /* Bare domains: example.com / news.site.in */
+  if (/\b(?:www\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?:\/\S*)?/i.test(text || '')
+      && /\b(headline|headlines|news|article|page|site|website|browse|open|visit|fetch|scrape|extract|read|from|on)\b/i.test(t)) {
+    return true;
+  }
+  return /\b(fill\s+(out\s+)?(the\s+)?form|submit\s+(the\s+)?form|sign\s*up|register|log\s*in|login|book\s+(a\s+)?|checkout|navigate\s+to|go\s+to\s+https?:|open\s+(the\s+)?(page|site|url|website)|browse\s+|visit\s+|click\s+(on\s+)?|type\s+into|extract\s+from\s+(the\s+)?(page|site)|scrape\s+|on\s+this\s+(page|site|url)|fetch\s+(the\s+)?(page|site|url|headlines?|news)|get\s+(me\s+)?(the\s+)?(headlines?|news|articles?))\b/i.test(t)
     || /\b(fill|complete|submit).{0,40}\bform\b/i.test(t)
     || /\bgo to https?:\/\//i.test(t)
-    || /https?:\/\/[^\s]+/i.test(t);
+    || /\b(latest|current|today'?s|breaking)\s+(headlines?|news)\b/i.test(t);
+}
+
+/* Normalize bare domains in task text to https:// so page fetchers work */
+function normalizeTaskUrls(text) {
+  let t = String(text || '');
+  // already has scheme
+  if (/https?:\/\//i.test(t)) return t;
+  // domain after from/on/at/visit etc.
+  t = t.replace(
+    /\b((?:from|on|at|visit|open|browse|of)\s+)((?:www\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?:\/[^\s]*)?)/gi,
+    (_, pre, host) => pre + 'https://' + host.replace(/^https?:\/\//i, '')
+  );
+  // trailing bare domain
+  t = t.replace(
+    /\b((?:www\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z]{2,})(?:\/[^\s]*)?)\b/gi,
+    (m) => {
+      if (/^(https?:|www\.)/i.test(m) || /\.(com|in|org|net|ai|io|co|news|app|info|edu|gov)(\/|$)/i.test(m)) {
+        return m.startsWith('http') ? m : 'https://' + m;
+      }
+      return m;
+    }
+  );
+  return t;
 }
 
 function isFormFillTask(text) {
@@ -3105,6 +3140,8 @@ send = async function(rawText) {
 
   if (micOn) stopMic();
 
+  const taskText = normalizeTaskUrls(text);
+
   if (!activeId) {
     const id = Date.now().toString();
     activeId = id;
@@ -3119,16 +3156,16 @@ send = async function(rawText) {
   inputEl.style.height = 'auto';
   lock();
   addUser(text);
-  hist.push({ role: 'user', content: text });
+  hist.push({ role: 'user', content: taskText });
   const sessNow = sessions.find(x => x.id === activeId);
   if (sessNow) {
     sessNow.messages = [...hist];
     try { await dbPut('sessions', sessNow); } catch (_) {}
   }
 
-  const panel = addBrowserPanel(text);
+  const panel = addBrowserPanel(taskText);
   try {
-    const { ok, result } = await runBrowserAgent(text, panel);
+    const { ok, result } = await runBrowserAgent(taskText, panel);
     const summary = ok
       ? (typeof result === 'string' ? result : JSON.stringify(result))
       : `Browser agent did not complete successfully.`;
