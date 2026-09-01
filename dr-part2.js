@@ -1,1 +1,1 @@
-PLACEHOLDER_P2
+console.warn('loading part2');
