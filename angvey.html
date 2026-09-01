@@ -20,9 +20,10 @@ html,body{margin:0;height:100%;background:#0D0D0F;color:#A78BFA;font-family:syst
     var res = await fetch(GOOD);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var html = await res.text();
-    // Inject Deep Research enhancer before </body>
     if (html.indexOf('deep-research-app.js') === -1) {
-      html = html.replace('</body>', '\n<script src="./deep-research-app.js"><\/script>\n</body>');
+      html = html.replace('</body>', '\n<script src="./deep-research-app.js"><\\/script>\n<script src="./dr-drawer.js"><\\/script>\n</body>');
+    } else if (html.indexOf('dr-drawer.js') === -1) {
+      html = html.replace('</body>', '\n<script src="./dr-drawer.js"><\\/script>\n</body>');
     }
     document.open();
     document.write(html);
@@ -30,7 +31,7 @@ html,body{margin:0;height:100%;background:#0D0D0F;color:#A78BFA;font-family:syst
   } catch (e) {
     document.getElementById('boot').innerHTML =
       '<div style="color:#F87171;max-width:360px;text-align:center;padding:20px">Could not load ANGVEY.<br><small>' +
-      String(e.message || e) + '</small><br><br><a href="' + GOOD + '" style="color:#A78BFA">Open source HTML</a></div>';
+      String(e.message || e) + '</small></div>';
   }
 })();
 </script>
