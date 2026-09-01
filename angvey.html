@@ -4,7 +4,35 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ANGVEY — AI Partner</title>
-<!-- Restored full app - content too large for single tool arg, using alternative -->
+<style>
+html,body{margin:0;height:100%;background:#0D0D0F;color:#A78BFA;font-family:system-ui,sans-serif}
+#boot{display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px}
+#boot .spin{width:28px;height:28px;border:2px solid rgba(167,139,250,.25);border-top-color:#A78BFA;border-radius:50%;animation:s .7s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
 </head>
-<body>Loading full app...</body>
+<body>
+<div id="boot"><div class="spin"></div><div>Loading ANGVEY…</div></div>
+<script>
+(async function () {
+  var GOOD = 'https://raw.githubusercontent.com/lakshay99b-dotcom/angvey-public/91a4b3e92874cc8c44019b6d08ef9c9fd24cc212/angvey.html';
+  try {
+    var res = await fetch(GOOD);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var html = await res.text();
+    // Inject Deep Research enhancer before </body>
+    if (html.indexOf('deep-research-app.js') === -1) {
+      html = html.replace('</body>', '\n<script src="./deep-research-app.js"><\/script>\n</body>');
+    }
+    document.open();
+    document.write(html);
+    document.close();
+  } catch (e) {
+    document.getElementById('boot').innerHTML =
+      '<div style="color:#F87171;max-width:360px;text-align:center;padding:20px">Could not load ANGVEY.<br><small>' +
+      String(e.message || e) + '</small><br><br><a href="' + GOOD + '" style="color:#A78BFA">Open source HTML</a></div>';
+  }
+})();
+</script>
+</body>
 </html>
