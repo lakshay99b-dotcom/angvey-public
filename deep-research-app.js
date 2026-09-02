@@ -1,36 +1,101 @@
 /**
  * ANGVEY Deep Research client enhancer
- * - Tools menu toggle (amber)
- * - Real SciSpace-style sequential progress
- * - Multi-source grounded answers
- * - Self-contained IndexedDB chat save (works even when main script vars are sealed)
- * - Paper chips + drawer + KaTeX
+ * Mobile-safe Tools menu + research mode
  */
 (function () {
   'use strict';
 
   const DR_CSS = `
-#dr-tools-menu{position:absolute;bottom:calc(100% + 8px);left:0;min-width:240px;background:#161618;border:1px solid #2D2D30;border-radius:14px;padding:8px;box-shadow:0 12px 32px rgba(0,0,0,.55);z-index:40;display:none}
+/* Tools trigger — larger hit area on touch */
+#tools-btn, button#tools-btn, .dr-tools-trigger{
+  position:relative;z-index:30;
+  min-height:40px;min-width:64px;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:rgba(245,158,11,.2);
+  pointer-events:auto !important;
+}
+
+/* Backdrop for mobile sheet */
+#dr-tools-backdrop{
+  display:none;position:fixed;inset:0;z-index:12000;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+}
+#dr-tools-backdrop.open{display:block}
+
+/* Desktop dropdown */
+#dr-tools-menu{
+  position:fixed;z-index:12001;
+  min-width:260px;max-width:min(320px,92vw);
+  background:#161618;border:1px solid #2D2D30;border-radius:14px;
+  padding:8px;box-shadow:0 16px 48px rgba(0,0,0,.65);
+  display:none;
+}
 #dr-tools-menu.open{display:block}
-.dr-tool-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border-radius:10px;border:none;background:transparent;color:#D4D4D8;font-size:.8rem;font-weight:500;cursor:pointer;text-align:left}
-.dr-tool-item:hover{background:rgba(255,255,255,.05)}
+
+/* Mobile: bottom sheet */
+@media (max-width:860px){
+  #dr-tools-menu{
+    left:0 !important;right:0 !important;bottom:0 !important;top:auto !important;
+    width:100% !important;max-width:100% !important;
+    min-width:0 !important;
+    border-radius:18px 18px 0 0;
+    padding:12px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+    box-shadow:0 -12px 40px rgba(0,0,0,.55);
+  }
+  #dr-tools-menu .dr-sheet-handle{
+    display:block;width:40px;height:4px;border-radius:99px;
+    background:#3F3F46;margin:2px auto 12px;
+  }
+  .dr-tool-item{padding:14px 14px;min-height:52px;font-size:.9rem}
+}
+@media (min-width:861px){
+  #dr-tools-menu .dr-sheet-handle{display:none}
+}
+
+.dr-tool-item{
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:12px 12px;border-radius:12px;border:none;background:transparent;
+  color:#D4D4D8;font-size:.85rem;font-weight:500;cursor:pointer;text-align:left;
+  touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,255,255,.08);
+}
+.dr-tool-item:active{background:rgba(255,255,255,.06)}
 .dr-tool-item.on{background:rgba(245,158,11,.12);color:#FBBF24}
-.dr-tool-item .ic{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#1C1C1F;border:1px solid #2D2D30;flex-shrink:0}
+.dr-tool-item .ic{
+  width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:#1C1C1F;border:1px solid #2D2D30;flex-shrink:0;
+}
 .dr-tool-item.on .ic{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1)}
+
+/* Quick research toggle always visible on narrow screens */
+#dr-quick-toggle{
+  display:none;align-items:center;justify-content:center;gap:4px;
+  min-width:40px;min-height:40px;padding:0 10px;border-radius:10px;
+  border:1px solid #3F3F46;background:transparent;color:#A1A1AA;
+  font-size:.72rem;font-weight:700;cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:rgba(245,158,11,.2);
+}
+#dr-quick-toggle.on{
+  color:#FBBF24;border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12);
+}
+@media (max-width:860px){
+  #dr-quick-toggle{display:inline-flex}
+}
+
 .dr-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;font-size:.65rem;font-weight:700;letter-spacing:.04em;background:rgba(245,158,11,.12);color:#FBBF24;border:1px solid rgba(245,158,11,.25);margin-bottom:6px}
 .dr-prog{background:#0F0F12;border:1px solid #1F1F23;border-radius:14px;padding:14px 16px;width:100%;max-width:640px;animation:fup .16s ease}
 .dr-prog-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
 .dr-prog-title{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600;color:#FBBF24}
 .dr-prog-meta{font-size:.7rem;color:#52525B}
-.dr-step{display:flex;align-items:flex-start;gap:10px;font-size:.76rem;color:#71717A;line-height:1.45;padding:5px 0;animation:fup .14s ease}
+.dr-step{display:flex;align-items:flex-start;gap:10px;font-size:.76rem;color:#71717A;line-height:1.45;padding:5px 0}
 .dr-step.live{color:#FDE68A}
 .dr-step.done{color:#A1A1AA}
 .dr-step .dot{width:8px;height:8px;min-width:8px;border-radius:50%;margin-top:5px;background:#3F3F46}
 .dr-step.live .dot{background:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.2);animation:bb-pulse 1.4s ease-in-out infinite}
 .dr-step.done .dot{background:#34D399;box-shadow:none;animation:none}
 .dr-papers{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.dr-paper-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:9px;background:#1C1C1F;border:1px solid #2D2D30;font-size:.68rem;color:#D4D4D8;cursor:pointer;max-width:100%;transition:border-color .14s,background .14s}
-.dr-paper-chip:hover{border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.08)}
+.dr-paper-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:9px;background:#1C1C1F;border:1px solid #2D2D30;font-size:.68rem;color:#D4D4D8;cursor:pointer;max-width:100%;touch-action:manipulation}
+.dr-paper-chip:active{border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.08)}
 .dr-paper-chip .src{color:#F59E0B;font-weight:700;flex-shrink:0}
 .dr-paper-chip .ttl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
 .dr-hook{margin-top:8px;padding:10px 12px;border-radius:10px;background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(139,92,246,.06));border:1px solid rgba(245,158,11,.18);font-size:.72rem;color:#D4D4D8;line-height:1.5}
@@ -54,8 +119,8 @@
   window.__angveyDeepResearchOn = false;
   window.__angveyLastPapers = [];
   let drBusy = false;
+  let menuIgnoreCloseUntil = 0;
 
-  /* ── Self-contained session persistence (same IndexedDB as main app) ── */
   function openAngveyDB() {
     return new Promise((resolve, reject) => {
       try {
@@ -84,7 +149,6 @@
         tx.onerror = () => rej(tx.error);
       });
     } catch (_) {}
-    // Best-effort sync into main app memory if exposed
     try {
       if (Array.isArray(window.sessions)) {
         const i = window.sessions.findIndex((s) => s.id === sess.id);
@@ -96,7 +160,13 @@
   }
 
   function findToolsButton() {
-    return Array.from(document.querySelectorAll('button')).find((b) => /\bTools\b/i.test(b.textContent || '')) || null;
+    let btn = document.getElementById('tools-btn');
+    if (btn) return btn;
+    btn = Array.from(document.querySelectorAll('button')).find((b) => {
+      const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
+      return t === 'Tools' || /^Tools$/i.test(t) || (t.includes('Tools') && t.length < 20);
+    });
+    return btn || null;
   }
 
   function ensureModePill() {
@@ -106,9 +176,33 @@
     if (!sendBtn || !sendBtn.parentElement) return null;
     pill = document.createElement('span');
     pill.id = 'dr-mode-pill';
-    pill.innerHTML = '🔬 Research';
+    pill.textContent = '🔬 Research';
     sendBtn.parentElement.insertBefore(pill, sendBtn);
     return pill;
+  }
+
+  function ensureQuickToggle() {
+    let q = document.getElementById('dr-quick-toggle');
+    if (q) return q;
+    const toolsBtn = findToolsButton();
+    if (!toolsBtn || !toolsBtn.parentElement) return null;
+    q = document.createElement('button');
+    q.type = 'button';
+    q.id = 'dr-quick-toggle';
+    q.title = 'Toggle Deep Research';
+    q.setAttribute('aria-label', 'Toggle Deep Research');
+    q.innerHTML = '🔬';
+    toolsBtn.parentElement.insertBefore(q, toolsBtn.nextSibling);
+    q.addEventListener(
+      'click',
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setResearchOn(!window.__angveyDeepResearchOn);
+      },
+      true
+    );
+    return q;
   }
 
   function setResearchOn(on) {
@@ -123,46 +217,148 @@
     }
     const pill = ensureModePill();
     if (pill) pill.classList.toggle('on', on);
+    const q = document.getElementById('dr-quick-toggle');
+    if (q) q.classList.toggle('on', on);
+  }
+
+  function closeToolsMenu() {
+    const menu = document.getElementById('dr-tools-menu');
+    const bd = document.getElementById('dr-tools-backdrop');
+    if (menu) menu.classList.remove('open');
+    if (bd) bd.classList.remove('open');
+  }
+
+  function openToolsMenu() {
+    const menu = document.getElementById('dr-tools-menu');
+    const bd = document.getElementById('dr-tools-backdrop');
+    const toolsBtn = findToolsButton();
+    if (!menu) return;
+
+    const mobile = window.matchMedia('(max-width:860px)').matches;
+    if (mobile) {
+      menu.style.left = '';
+      menu.style.top = '';
+      menu.style.bottom = '';
+      if (bd) bd.classList.add('open');
+    } else if (toolsBtn) {
+      const r = toolsBtn.getBoundingClientRect();
+      const menuW = 260;
+      let left = r.left;
+      if (left + menuW > window.innerWidth - 8) left = Math.max(8, window.innerWidth - menuW - 8);
+      menu.style.left = left + 'px';
+      menu.style.bottom = window.innerHeight - r.top + 8 + 'px';
+      menu.style.top = 'auto';
+      if (bd) bd.classList.remove('open');
+    }
+
+    menu.classList.add('open');
+    menuIgnoreCloseUntil = Date.now() + 400;
+  }
+
+  function toggleToolsMenu(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    }
+    const menu = document.getElementById('dr-tools-menu');
+    if (!menu) return;
+    if (menu.classList.contains('open')) closeToolsMenu();
+    else openToolsMenu();
   }
 
   function ensureToolsMenu() {
     injectCSS();
     const toolsBtn = findToolsButton();
     if (!toolsBtn) return null;
-    const wrap = toolsBtn.parentElement;
-    if (!wrap) return null;
-    wrap.style.position = 'relative';
+
+    // Harden the existing Tools button for touch
+    if (!toolsBtn.id) toolsBtn.id = 'tools-btn';
+    toolsBtn.classList.add('dr-tools-trigger');
+    toolsBtn.type = 'button';
+    toolsBtn.style.pointerEvents = 'auto';
+    toolsBtn.style.position = 'relative';
+    toolsBtn.style.zIndex = '30';
+    toolsBtn.style.minHeight = '40px';
+    toolsBtn.style.touchAction = 'manipulation';
+
+    // Backdrop (body-level so nothing clips it)
+    let bd = document.getElementById('dr-tools-backdrop');
+    if (!bd) {
+      bd = document.createElement('div');
+      bd.id = 'dr-tools-backdrop';
+      document.body.appendChild(bd);
+      bd.addEventListener(
+        'click',
+        (e) => {
+          e.preventDefault();
+          closeToolsMenu();
+        },
+        true
+      );
+    }
 
     let menu = document.getElementById('dr-tools-menu');
     if (!menu) {
       menu = document.createElement('div');
       menu.id = 'dr-tools-menu';
-      menu.innerHTML = `
-        <button type="button" class="dr-tool-item" id="tool-deep-research">
-          <span class="ic">
-            <svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
-          </span>
-          <span style="flex:1">
-            <div style="font-weight:600">Deep Research</div>
-            <div style="font-size:.68rem;color:#71717A;margin-top:1px">arXiv · Semantic Scholar · OpenAlex</div>
-          </span>
-        </button>`;
-      wrap.appendChild(menu);
+      menu.innerHTML =
+        '<div class="dr-sheet-handle"></div>' +
+        '<button type="button" class="dr-tool-item" id="tool-deep-research">' +
+        '<span class="ic"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg></span>' +
+        '<span style="flex:1"><div style="font-weight:600">Deep Research</div>' +
+        '<div style="font-size:.68rem;color:#71717A;margin-top:2px">arXiv · Semantic Scholar · OpenAlex</div></span>' +
+        '</button>';
+      // Append to body — never inside overflow:hidden input card
+      document.body.appendChild(menu);
 
-      toolsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        menu.classList.toggle('open');
-      });
-      document.addEventListener('click', (e) => {
-        if (!menu.contains(e.target) && e.target !== toolsBtn) menu.classList.remove('open');
-      });
-
-      document.getElementById('tool-deep-research').addEventListener('click', () => {
-        setResearchOn(!window.__angveyDeepResearchOn);
-        menu.classList.remove('open');
-      });
+      document.getElementById('tool-deep-research').addEventListener(
+        'click',
+        (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setResearchOn(!window.__angveyDeepResearchOn);
+          closeToolsMenu();
+        },
+        true
+      );
     }
+
+    if (!toolsBtn.__drToolsBound) {
+      toolsBtn.__drToolsBound = true;
+      // pointerup works better than click on some mobile browsers
+      const handler = (e) => toggleToolsMenu(e);
+      toolsBtn.addEventListener('click', handler, true);
+      toolsBtn.addEventListener(
+        'touchend',
+        (e) => {
+          // Prevent ghost click + ensure toggle on iOS
+          e.preventDefault();
+          toggleToolsMenu(e);
+        },
+        { passive: false, capture: true }
+      );
+    }
+
+    if (!window.__drDocCloseBound) {
+      window.__drDocCloseBound = true;
+      document.addEventListener(
+        'click',
+        (e) => {
+          if (Date.now() < menuIgnoreCloseUntil) return;
+          const menuEl = document.getElementById('dr-tools-menu');
+          const btn = findToolsButton();
+          if (!menuEl || !menuEl.classList.contains('open')) return;
+          if (menuEl.contains(e.target)) return;
+          if (btn && (btn === e.target || btn.contains(e.target))) return;
+          closeToolsMenu();
+        },
+        true
+      );
+    }
+
     ensureModePill();
+    ensureQuickToggle();
     return menu;
   }
 
@@ -348,7 +544,7 @@
         hookEl.innerHTML =
           '📚 <strong>' +
           papers.length +
-          ' papers</strong> from arXiv, Semantic Scholar & OpenAlex. Click a chip to read the abstract in-app.';
+          ' papers</strong> from arXiv, Semantic Scholar & OpenAlex. Tap a chip to read the abstract in-app.';
       }
     }
 
@@ -406,7 +602,6 @@
     if (!text || drBusy) return;
     const inputEl = document.getElementById('ci');
 
-    // Session id — prefer main app activeId if present
     let sessionId = null;
     try {
       if (window.activeId) sessionId = window.activeId;
@@ -416,7 +611,6 @@
     const title = text.length > 46 ? text.slice(0, 43) + '…' : text;
     let messages = [];
 
-    // Load existing session messages if any
     try {
       const db = await openAngveyDB();
       const existing = await new Promise((res) => {
@@ -454,7 +648,6 @@
 
     try {
       progress.next('Querying arXiv API for matching preprints');
-      // Small delay so user sees sequential steps (real work is parallel on server)
       await new Promise((r) => setTimeout(r, 180));
       progress.next('Querying Semantic Scholar graph');
       await new Promise((r) => setTimeout(r, 120));
@@ -575,7 +768,6 @@
   function getSendFn() {
     if (typeof window.send === 'function') return window.send;
     try {
-      // eslint-disable-next-line no-undef
       if (typeof send === 'function') return send;
     } catch (_) {}
     return null;
@@ -589,9 +781,7 @@
     const wrapped = async function (rawText) {
       const text = (rawText || (document.getElementById('ci') || {}).value || '').trim();
       if (!text) return;
-      if (window.__angveyDeepResearchOn) {
-        return runDeepResearch(text);
-      }
+      if (window.__angveyDeepResearchOn) return runDeepResearch(text);
       return orig.apply(this, arguments);
     };
 
@@ -599,8 +789,6 @@
       window.send = wrapped;
     } catch (_) {}
     try {
-      // Also overwrite global binding when possible
-      // eslint-disable-next-line no-undef
       send = wrapped;
     } catch (_) {}
 
