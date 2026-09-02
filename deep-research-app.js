@@ -1,53 +1,58 @@
 /**
- * ANGVEY Deep Research client enhancer
- * Mobile-safe Tools menu + research mode
+ * ANGVEY Deep Research — mobile-safe Tools + Research controls
+ * Rebuilds Tools button (original was a dead placeholder / hard to hit on phones)
  */
 (function () {
   'use strict';
 
   const DR_CSS = `
-/* Tools trigger — larger hit area on touch */
-#tools-btn, button#tools-btn, .dr-tools-trigger{
-  position:relative;z-index:30;
-  min-height:40px;min-width:64px;
-  touch-action:manipulation;
-  -webkit-tap-highlight-color:rgba(245,158,11,.2);
-  pointer-events:auto !important;
+#angvey-tools-btn, #angvey-research-btn {
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-height:40px;min-width:40px;padding:0 12px;border-radius:10px;
+  border:1px solid #3F3F46;background:transparent;color:#A1A1AA;
+  font-size:.75rem;font-weight:600;cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:rgba(245,158,11,.25);
+  position:relative;z-index:50;pointer-events:auto !important;
+  -webkit-user-select:none;user-select:none;
 }
+#angvey-tools-btn:active, #angvey-research-btn:active {
+  transform:scale(.96);background:rgba(255,255,255,.06);
+}
+#angvey-tools-btn.on, #angvey-research-btn.on {
+  color:#FBBF24;border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.14);
+}
+#angvey-research-btn { min-width:44px;font-size:.9rem }
 
-/* Backdrop for mobile sheet */
+/* Hide original inert Tools placeholder once we inject ours */
+button.dr-legacy-tools-hidden { display:none !important }
+
 #dr-tools-backdrop{
   display:none;position:fixed;inset:0;z-index:12000;
-  background:rgba(0,0,0,.55);backdrop-filter:blur(2px);
-  -webkit-backdrop-filter:blur(2px);
+  background:rgba(0,0,0,.55);
 }
 #dr-tools-backdrop.open{display:block}
 
-/* Desktop dropdown */
 #dr-tools-menu{
   position:fixed;z-index:12001;
-  min-width:260px;max-width:min(320px,92vw);
+  min-width:280px;max-width:min(340px,94vw);
   background:#161618;border:1px solid #2D2D30;border-radius:14px;
-  padding:8px;box-shadow:0 16px 48px rgba(0,0,0,.65);
+  padding:10px;box-shadow:0 16px 48px rgba(0,0,0,.65);
   display:none;
 }
 #dr-tools-menu.open{display:block}
 
-/* Mobile: bottom sheet */
 @media (max-width:860px){
   #dr-tools-menu{
     left:0 !important;right:0 !important;bottom:0 !important;top:auto !important;
-    width:100% !important;max-width:100% !important;
-    min-width:0 !important;
+    width:100% !important;max-width:100% !important;min-width:0 !important;
     border-radius:18px 18px 0 0;
-    padding:12px 12px calc(16px + env(safe-area-inset-bottom, 0px));
-    box-shadow:0 -12px 40px rgba(0,0,0,.55);
+    padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));
   }
   #dr-tools-menu .dr-sheet-handle{
     display:block;width:40px;height:4px;border-radius:99px;
-    background:#3F3F46;margin:2px auto 12px;
+    background:#3F3F46;margin:2px auto 14px;
   }
-  .dr-tool-item{padding:14px 14px;min-height:52px;font-size:.9rem}
+  .dr-tool-item{padding:16px 14px;min-height:56px;font-size:.95rem}
 }
 @media (min-width:861px){
   #dr-tools-menu .dr-sheet-handle{display:none}
@@ -56,34 +61,19 @@
 .dr-tool-item{
   display:flex;align-items:center;gap:12px;width:100%;
   padding:12px 12px;border-radius:12px;border:none;background:transparent;
-  color:#D4D4D8;font-size:.85rem;font-weight:500;cursor:pointer;text-align:left;
-  touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,255,255,.08);
+  color:#D4D4D8;font-size:.88rem;font-weight:500;cursor:pointer;text-align:left;
+  touch-action:manipulation;
 }
-.dr-tool-item:active{background:rgba(255,255,255,.06)}
+.dr-tool-item:active{background:rgba(255,255,255,.07)}
 .dr-tool-item.on{background:rgba(245,158,11,.12);color:#FBBF24}
 .dr-tool-item .ic{
-  width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
   background:#1C1C1F;border:1px solid #2D2D30;flex-shrink:0;
 }
-.dr-tool-item.on .ic{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1)}
-
-/* Quick research toggle always visible on narrow screens */
-#dr-quick-toggle{
-  display:none;align-items:center;justify-content:center;gap:4px;
-  min-width:40px;min-height:40px;padding:0 10px;border-radius:10px;
-  border:1px solid #3F3F46;background:transparent;color:#A1A1AA;
-  font-size:.72rem;font-weight:700;cursor:pointer;
-  touch-action:manipulation;-webkit-tap-highlight-color:rgba(245,158,11,.2);
-}
-#dr-quick-toggle.on{
-  color:#FBBF24;border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12);
-}
-@media (max-width:860px){
-  #dr-quick-toggle{display:inline-flex}
-}
+.dr-tool-item.on .ic{border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12)}
 
 .dr-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;font-size:.65rem;font-weight:700;letter-spacing:.04em;background:rgba(245,158,11,.12);color:#FBBF24;border:1px solid rgba(245,158,11,.25);margin-bottom:6px}
-.dr-prog{background:#0F0F12;border:1px solid #1F1F23;border-radius:14px;padding:14px 16px;width:100%;max-width:640px;animation:fup .16s ease}
+.dr-prog{background:#0F0F12;border:1px solid #1F1F23;border-radius:14px;padding:14px 16px;width:100%;max-width:640px}
 .dr-prog-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
 .dr-prog-title{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600;color:#FBBF24}
 .dr-prog-meta{font-size:.7rem;color:#52525B}
@@ -91,11 +81,10 @@
 .dr-step.live{color:#FDE68A}
 .dr-step.done{color:#A1A1AA}
 .dr-step .dot{width:8px;height:8px;min-width:8px;border-radius:50%;margin-top:5px;background:#3F3F46}
-.dr-step.live .dot{background:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.2);animation:bb-pulse 1.4s ease-in-out infinite}
-.dr-step.done .dot{background:#34D399;box-shadow:none;animation:none}
+.dr-step.live .dot{background:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.2)}
+.dr-step.done .dot{background:#34D399}
 .dr-papers{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .dr-paper-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:9px;background:#1C1C1F;border:1px solid #2D2D30;font-size:.68rem;color:#D4D4D8;cursor:pointer;max-width:100%;touch-action:manipulation}
-.dr-paper-chip:active{border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.08)}
 .dr-paper-chip .src{color:#F59E0B;font-weight:700;flex-shrink:0}
 .dr-paper-chip .ttl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
 .dr-hook{margin-top:8px;padding:10px 12px;border-radius:10px;background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(139,92,246,.06));border:1px solid rgba(245,158,11,.18);font-size:.72rem;color:#D4D4D8;line-height:1.5}
@@ -159,66 +148,39 @@
     } catch (_) {}
   }
 
-  function findToolsButton() {
-    let btn = document.getElementById('tools-btn');
-    if (btn) return btn;
-    btn = Array.from(document.querySelectorAll('button')).find((b) => {
-      const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
-      return t === 'Tools' || /^Tools$/i.test(t) || (t.includes('Tools') && t.length < 20);
-    });
-    return btn || null;
-  }
-
-  function ensureModePill() {
-    let pill = document.getElementById('dr-mode-pill');
-    if (pill) return pill;
-    const sendBtn = document.getElementById('send-btn');
-    if (!sendBtn || !sendBtn.parentElement) return null;
-    pill = document.createElement('span');
-    pill.id = 'dr-mode-pill';
-    pill.textContent = '🔬 Research';
-    sendBtn.parentElement.insertBefore(pill, sendBtn);
-    return pill;
-  }
-
-  function ensureQuickToggle() {
-    let q = document.getElementById('dr-quick-toggle');
-    if (q) return q;
-    const toolsBtn = findToolsButton();
-    if (!toolsBtn || !toolsBtn.parentElement) return null;
-    q = document.createElement('button');
-    q.type = 'button';
-    q.id = 'dr-quick-toggle';
-    q.title = 'Toggle Deep Research';
-    q.setAttribute('aria-label', 'Toggle Deep Research');
-    q.innerHTML = '🔬';
-    toolsBtn.parentElement.insertBefore(q, toolsBtn.nextSibling);
-    q.addEventListener(
-      'click',
-      (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setResearchOn(!window.__angveyDeepResearchOn);
-      },
-      true
+  /** Find the original placeholder Tools button in the input toolbar */
+  function findLegacyToolsButton() {
+    const byId = document.getElementById('tools-btn');
+    if (byId && byId.id !== 'angvey-tools-btn') return byId;
+    return (
+      Array.from(document.querySelectorAll('#input-card button, .flex.items-center button')).find((b) => {
+        if (b.id === 'angvey-tools-btn' || b.id === 'angvey-research-btn') return false;
+        const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
+        return t === 'Tools' || /^Tools$/i.test(t);
+      }) || null
     );
-    return q;
+  }
+
+  function findToolbarSlot() {
+    // Prefer left cluster next to attach / web / bb
+    const attach = document.getElementById('attach-btn');
+    if (attach && attach.parentElement) return attach.parentElement;
+    const legacy = findLegacyToolsButton();
+    if (legacy && legacy.parentElement) return legacy.parentElement;
+    const inputCard = document.getElementById('input-card');
+    return inputCard || null;
   }
 
   function setResearchOn(on) {
     window.__angveyDeepResearchOn = !!on;
     const item = document.getElementById('tool-deep-research');
     if (item) item.classList.toggle('on', on);
-    const toolsBtn = findToolsButton();
-    if (toolsBtn) {
-      toolsBtn.style.color = on ? '#F59E0B' : '';
-      toolsBtn.style.borderColor = on ? 'rgba(245,158,11,.45)' : '';
-      toolsBtn.style.background = on ? 'rgba(245,158,11,.1)' : '';
-    }
-    const pill = ensureModePill();
+    const toolsBtn = document.getElementById('angvey-tools-btn');
+    if (toolsBtn) toolsBtn.classList.toggle('on', on);
+    const researchBtn = document.getElementById('angvey-research-btn');
+    if (researchBtn) researchBtn.classList.toggle('on', on);
+    const pill = document.getElementById('dr-mode-pill');
     if (pill) pill.classList.toggle('on', on);
-    const q = document.getElementById('dr-quick-toggle');
-    if (q) q.classList.toggle('on', on);
   }
 
   function closeToolsMenu() {
@@ -231,7 +193,7 @@
   function openToolsMenu() {
     const menu = document.getElementById('dr-tools-menu');
     const bd = document.getElementById('dr-tools-backdrop');
-    const toolsBtn = findToolsButton();
+    const toolsBtn = document.getElementById('angvey-tools-btn');
     if (!menu) return;
 
     const mobile = window.matchMedia('(max-width:860px)').matches;
@@ -242,7 +204,7 @@
       if (bd) bd.classList.add('open');
     } else if (toolsBtn) {
       const r = toolsBtn.getBoundingClientRect();
-      const menuW = 260;
+      const menuW = 280;
       let left = r.left;
       if (left + menuW > window.innerWidth - 8) left = Math.max(8, window.innerWidth - menuW - 8);
       menu.style.left = left + 'px';
@@ -252,14 +214,16 @@
     }
 
     menu.classList.add('open');
-    menuIgnoreCloseUntil = Date.now() + 400;
+    menuIgnoreCloseUntil = Date.now() + 450;
   }
 
   function toggleToolsMenu(e) {
     if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      } catch (_) {}
     }
     const menu = document.getElementById('dr-tools-menu');
     if (!menu) return;
@@ -267,22 +231,79 @@
     else openToolsMenu();
   }
 
-  function ensureToolsMenu() {
+  function ensureControls() {
     injectCSS();
-    const toolsBtn = findToolsButton();
-    if (!toolsBtn) return null;
 
-    // Harden the existing Tools button for touch
-    if (!toolsBtn.id) toolsBtn.id = 'tools-btn';
-    toolsBtn.classList.add('dr-tools-trigger');
-    toolsBtn.type = 'button';
-    toolsBtn.style.pointerEvents = 'auto';
-    toolsBtn.style.position = 'relative';
-    toolsBtn.style.zIndex = '30';
-    toolsBtn.style.minHeight = '40px';
-    toolsBtn.style.touchAction = 'manipulation';
+    const slot = findToolbarSlot();
+    if (!slot) return false;
 
-    // Backdrop (body-level so nothing clips it)
+    // Hide original non-working Tools placeholder
+    const legacy = findLegacyToolsButton();
+    if (legacy) {
+      legacy.classList.add('dr-legacy-tools-hidden');
+      legacy.setAttribute('aria-hidden', 'true');
+      legacy.tabIndex = -1;
+    }
+
+    // New Tools button
+    let toolsBtn = document.getElementById('angvey-tools-btn');
+    if (!toolsBtn) {
+      toolsBtn = document.createElement('button');
+      toolsBtn.type = 'button';
+      toolsBtn.id = 'angvey-tools-btn';
+      toolsBtn.setAttribute('aria-label', 'Tools');
+      toolsBtn.innerHTML =
+        '<svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" style="flex-shrink:0"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>' +
+        '<span>Tools</span>';
+      if (legacy && legacy.parentElement === slot) {
+        slot.insertBefore(toolsBtn, legacy);
+      } else {
+        slot.appendChild(toolsBtn);
+      }
+
+      const onTools = (e) => toggleToolsMenu(e);
+      toolsBtn.addEventListener('click', onTools, true);
+      toolsBtn.addEventListener(
+        'touchend',
+        (e) => {
+          e.preventDefault();
+          onTools(e);
+        },
+        { passive: false, capture: true }
+      );
+    }
+
+    // Always-visible Research toggle (one tap)
+    let researchBtn = document.getElementById('angvey-research-btn');
+    if (!researchBtn) {
+      researchBtn = document.createElement('button');
+      researchBtn.type = 'button';
+      researchBtn.id = 'angvey-research-btn';
+      researchBtn.title = 'Deep Research on/off';
+      researchBtn.setAttribute('aria-label', 'Deep Research');
+      researchBtn.textContent = '🔬';
+      slot.insertBefore(researchBtn, toolsBtn.nextSibling);
+
+      const onResearch = (e) => {
+        try {
+          e.preventDefault();
+          e.stopPropagation();
+        } catch (_) {}
+        setResearchOn(!window.__angveyDeepResearchOn);
+        closeToolsMenu();
+      };
+      researchBtn.addEventListener('click', onResearch, true);
+      researchBtn.addEventListener(
+        'touchend',
+        (e) => {
+          e.preventDefault();
+          onResearch(e);
+        },
+        { passive: false, capture: true }
+      );
+    }
+
+    // Backdrop + menu on body
     let bd = document.getElementById('dr-tools-backdrop');
     if (!bd) {
       bd = document.createElement('div');
@@ -307,9 +328,8 @@
         '<button type="button" class="dr-tool-item" id="tool-deep-research">' +
         '<span class="ic"><svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg></span>' +
         '<span style="flex:1"><div style="font-weight:600">Deep Research</div>' +
-        '<div style="font-size:.68rem;color:#71717A;margin-top:2px">arXiv · Semantic Scholar · OpenAlex</div></span>' +
+        '<div style="font-size:.7rem;color:#71717A;margin-top:2px">arXiv · Semantic Scholar · OpenAlex</div></span>' +
         '</button>';
-      // Append to body — never inside overflow:hidden input card
       document.body.appendChild(menu);
 
       document.getElementById('tool-deep-research').addEventListener(
@@ -324,22 +344,6 @@
       );
     }
 
-    if (!toolsBtn.__drToolsBound) {
-      toolsBtn.__drToolsBound = true;
-      // pointerup works better than click on some mobile browsers
-      const handler = (e) => toggleToolsMenu(e);
-      toolsBtn.addEventListener('click', handler, true);
-      toolsBtn.addEventListener(
-        'touchend',
-        (e) => {
-          // Prevent ghost click + ensure toggle on iOS
-          e.preventDefault();
-          toggleToolsMenu(e);
-        },
-        { passive: false, capture: true }
-      );
-    }
-
     if (!window.__drDocCloseBound) {
       window.__drDocCloseBound = true;
       document.addEventListener(
@@ -347,7 +351,7 @@
         (e) => {
           if (Date.now() < menuIgnoreCloseUntil) return;
           const menuEl = document.getElementById('dr-tools-menu');
-          const btn = findToolsButton();
+          const btn = document.getElementById('angvey-tools-btn');
           if (!menuEl || !menuEl.classList.contains('open')) return;
           if (menuEl.contains(e.target)) return;
           if (btn && (btn === e.target || btn.contains(e.target))) return;
@@ -357,9 +361,18 @@
       );
     }
 
-    ensureModePill();
-    ensureQuickToggle();
-    return menu;
+    // Mode pill near send
+    if (!document.getElementById('dr-mode-pill')) {
+      const sendBtn = document.getElementById('send-btn');
+      if (sendBtn && sendBtn.parentElement) {
+        const pill = document.createElement('span');
+        pill.id = 'dr-mode-pill';
+        pill.textContent = '🔬 Research';
+        sendBtn.parentElement.insertBefore(pill, sendBtn);
+      }
+    }
+
+    return true;
   }
 
   async function deepResearchSearch(topic) {
@@ -533,7 +546,6 @@
           ']</span><span class="ttl">' +
           esc(p.title || 'Untitled') +
           '</span>';
-        chip.title = (p.source || '') + ' ' + (p.year || '') + ' — click for abstract';
         chip.addEventListener('click', () => {
           if (typeof window.__angveyOpenPaper === 'function') window.__angveyOpenPaper(p);
         });
@@ -544,7 +556,7 @@
         hookEl.innerHTML =
           '📚 <strong>' +
           papers.length +
-          ' papers</strong> from arXiv, Semantic Scholar & OpenAlex. Tap a chip to read the abstract in-app.';
+          ' papers</strong> — tap a chip for abstract.';
       }
     }
 
@@ -648,9 +660,9 @@
 
     try {
       progress.next('Querying arXiv API for matching preprints');
-      await new Promise((r) => setTimeout(r, 180));
+      await new Promise((r) => setTimeout(r, 150));
       progress.next('Querying Semantic Scholar graph');
-      await new Promise((r) => setTimeout(r, 120));
+      await new Promise((r) => setTimeout(r, 100));
       progress.next('Querying OpenAlex open knowledge base');
 
       data = await deepResearchSearch(text);
@@ -661,18 +673,18 @@
           (counts.arxiv || 0) +
           ' arXiv + ' +
           (counts.semanticScholar || 0) +
-          ' Semantic Scholar + ' +
+          ' S2 + ' +
           (counts.openAlex || 0) +
           ' OpenAlex'
       );
       progress.completeLive();
       progress.next(
-        'Deduplicating & ranking ' + (counts.unique || (data.papers || []).length) + ' unique papers'
+        'Ranking ' + (counts.unique || (data.papers || []).length) + ' unique papers'
       );
       window.__angveyLastPapers = data.papers || [];
       progress.showPapers(data.papers || []);
       progress.completeLive();
-      progress.next('Synthesizing answer grounded only in retrieved papers');
+      progress.next('Synthesizing grounded answer');
       progress.finishHeader(true, (data.papers || []).length);
     } catch (err) {
       progress.next('Search issue: ' + (err.message || err));
@@ -701,7 +713,7 @@
             {
               role: 'system',
               content:
-                'You are ANGVEY, an academic research partner. When Deep Research context is present, ground every claim in those papers and cite them as [1], [2], etc. Prefer theories that appear in the retrieved abstracts (e.g. Poplawski, Smolin, baby universes, black hole cosmology). Use clear markdown. If papers do not support a claim, say so.',
+                'You are ANGVEY, an academic research partner. When Deep Research context is present, ground every claim in those papers and cite them as [1], [2], etc. Prefer theories that appear in the retrieved abstracts. Use clear markdown. If papers do not support a claim, say so.',
             },
             ...apiMessages,
           ],
@@ -808,8 +820,7 @@
         if (!window.__angveyDeepResearchOn) return;
         e.preventDefault();
         e.stopImmediatePropagation();
-        const text = (inputEl && inputEl.value) || '';
-        runDeepResearch(text.trim());
+        runDeepResearch(((inputEl && inputEl.value) || '').trim());
       },
       true
     );
@@ -833,14 +844,14 @@
 
   function boot() {
     injectCSS();
-    ensureToolsMenu();
+    ensureControls();
     hookInputDirectly();
 
     let tries = 0;
     const iv = setInterval(() => {
-      ensureToolsMenu();
+      ensureControls();
       hookInputDirectly();
-      if (patchSend() || ++tries > 50) clearInterval(iv);
+      if (patchSend() || ++tries > 60) clearInterval(iv);
     }, 200);
 
     if (!document.querySelector('script[src*="dr-drawer"]')) {
