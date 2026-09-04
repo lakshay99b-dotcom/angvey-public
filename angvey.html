@@ -26,12 +26,11 @@ html,body{margin:0;height:100%;background:#0D0D0F;color:#A78BFA;font-family:syst
 </div>
 <script>
 (async function () {
-  // Prefer same-origin shell (fastest). Fall back to jsDelivr CDN, then GitHub raw.
-  var LOCAL = './angvey-app.html';
+  // jsDelivr CDN in front of GitHub (edge-cached, much faster than raw.githubusercontent.com)
   var GOOD = 'https://cdn.jsdelivr.net/gh/lakshay99b-dotcom/angvey-public@91a4b3e92874cc8c44019b6d08ef9c9fd24cc212/angvey.html';
   var FALLBACK = 'https://raw.githubusercontent.com/lakshay99b-dotcom/angvey-public/91a4b3e92874cc8c44019b6d08ef9c9fd24cc212/angvey.html';
-  // Stable version so browsers CAN cache enhancer scripts (never Date.now())
-  var V = '20260904a';
+  // Stable query so browsers cache enhancer scripts across visits
+  var V = '20260904b';
   var sub = document.getElementById('boot-sub');
 
   function injectScripts(html) {
@@ -40,21 +39,24 @@ html,body{margin:0;height:100%;background:#0D0D0F;color:#A78BFA;font-family:syst
       '<script src="./dr-drawer.js?v=' + V + '" defer><\\/script>';
     html = html.replace(/<script[^>]*deep-research-app\\.js[^>]*><\\/script>/gi, '');
     html = html.replace(/<script[^>]*dr-drawer\\.js[^>]*><\\/script>/gi, '');
-    if (html.indexOf('</body>') !== -1) {
-      return html.replace('</body>', tags + '</body>');
-    }
+    if (html.indexOf('</body>') !== -1) return html.replace('</body>', tags + '</body>');
     return html + tags;
   }
 
   async function load(url, label) {
     if (sub) sub.textContent = label;
     var ctrl = new AbortController();
-    var t = setTimeout(function () { ctrl.abort(); }, 12000);
+    var t = setTimeout(function () { ctrl.abort(); }, 10000);
     try {
       var res = await fetch(url, { signal: ctrl.signal, cache: 'force-cache' });
       clearTimeout(t);
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      return await res.text();
+      var text = await res.text();
+      // Reject empty / placeholder shells
+      if (!text || text.length < 5000 || text.indexOf('PLACEHOLDER') !== -1) {
+        throw new Error('Invalid shell');
+      }
+      return text;
     } catch (e) {
       clearTimeout(t);
       throw e;
@@ -64,13 +66,9 @@ html,body{margin:0;height:100%;background:#0D0D0F;color:#A78BFA;font-family:syst
   try {
     var html;
     try {
-      html = await load(LOCAL, 'Loading app…');
-    } catch (e0) {
-      try {
-        html = await load(GOOD, 'Loading from CDN…');
-      } catch (e1) {
-        html = await load(FALLBACK, 'CDN slow — trying backup…');
-      }
+      html = await load(GOOD, 'Loading from CDN…');
+    } catch (e1) {
+      html = await load(FALLBACK, 'CDN slow — trying backup…');
     }
     if (sub) sub.textContent = 'Starting app…';
     html = injectScripts(html);
@@ -81,8 +79,7 @@ html,body{margin:0;height:100%;background:#0D0D0F;color:#A78BFA;font-family:syst
     document.getElementById('boot').innerHTML =
       '<div style="color:#F87171;max-width:360px;text-align:center;padding:20px">' +
       'Could not load ANGVEY.<br><small>' + String(e.message || e) + '</small><br><br>' +
-      '<button onclick="location.reload()" style="padding:10px 16px;border-radius:10px;border:1px solid #3F3F46;background:#1C1C1F;color:#E4E4E7;cursor:pointer">Retry</button>' +
-      '</div>';
+      '<button onclick="location.reload()" style="padding:10px 16px;border-radius:10px;border:1px solid #3F3F46;background:#1C1C1F;color:#E4E4E7;cursor:pointer">Retry</button></div>';
   }
 })();
 </script>
