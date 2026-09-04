@@ -4,42 +4,85 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ANGVEY — AI Partner</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" href="./deep-research-app.js" as="script">
+<link rel="preload" href="./dr-drawer.js" as="script">
 <style>
 html,body{margin:0;height:100%;background:#0D0D0F;color:#A78BFA;font-family:system-ui,sans-serif}
 #boot{display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px}
 #boot .spin{width:28px;height:28px;border:2px solid rgba(167,139,250,.25);border-top-color:#A78BFA;border-radius:50%;animation:s .7s linear infinite}
 @keyframes s{to{transform:rotate(360deg)}}
+#boot .sub{font-size:.75rem;color:#52525B}
 </style>
 </head>
 <body>
-<div id="boot"><div class="spin"></div><div>Loading ANGVEY…</div></div>
+<div id="boot">
+  <div class="spin"></div>
+  <div>Loading ANGVEY…</div>
+  <div class="sub" id="boot-sub">Fetching app shell</div>
+</div>
 <script>
 (async function () {
-  var GOOD = 'https://raw.githubusercontent.com/lakshay99b-dotcom/angvey-public/91a4b3e92874cc8c44019b6d08ef9c9fd24cc212/angvey.html';
-  var CACHE_BUST = Date.now();
-  try {
-    var res = await fetch(GOOD);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    var html = await res.text();
-    // Always inject enhancer scripts with cache-bust so Tools fix ships
-    var inject =
-      '\n<script src="./deep-research-app.js?v=' + CACHE_BUST + '"><\\/script>\n' +
-      '<script src="./dr-drawer.js?v=' + CACHE_BUST + '"><\\/script>\n';
-    if (html.indexOf('deep-research-app.js') === -1) {
-      html = html.replace('</body>', inject + '</body>');
-    } else {
-      // Replace any existing deep-research script tags with cache-busted ones
-      html = html.replace(/<script[^>]*deep-research-app\.js[^>]*><\\/script>/gi, '');
-      html = html.replace(/<script[^>]*dr-drawer\.js[^>]*><\\/script>/gi, '');
-      html = html.replace('</body>', inject + '</body>');
+  // Prefer same-origin shell (fastest). Fall back to jsDelivr CDN, then GitHub raw.
+  var LOCAL = './angvey-app.html';
+  var GOOD = 'https://cdn.jsdelivr.net/gh/lakshay99b-dotcom/angvey-public@91a4b3e92874cc8c44019b6d08ef9c9fd24cc212/angvey.html';
+  var FALLBACK = 'https://raw.githubusercontent.com/lakshay99b-dotcom/angvey-public/91a4b3e92874cc8c44019b6d08ef9c9fd24cc212/angvey.html';
+  // Stable version so browsers CAN cache enhancer scripts (never Date.now())
+  var V = '20260904a';
+  var sub = document.getElementById('boot-sub');
+
+  function injectScripts(html) {
+    var tags =
+      '<script src="./deep-research-app.js?v=' + V + '" defer><\\/script>' +
+      '<script src="./dr-drawer.js?v=' + V + '" defer><\\/script>';
+    html = html.replace(/<script[^>]*deep-research-app\\.js[^>]*><\\/script>/gi, '');
+    html = html.replace(/<script[^>]*dr-drawer\\.js[^>]*><\\/script>/gi, '');
+    if (html.indexOf('</body>') !== -1) {
+      return html.replace('</body>', tags + '</body>');
     }
+    return html + tags;
+  }
+
+  async function load(url, label) {
+    if (sub) sub.textContent = label;
+    var ctrl = new AbortController();
+    var t = setTimeout(function () { ctrl.abort(); }, 12000);
+    try {
+      var res = await fetch(url, { signal: ctrl.signal, cache: 'force-cache' });
+      clearTimeout(t);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.text();
+    } catch (e) {
+      clearTimeout(t);
+      throw e;
+    }
+  }
+
+  try {
+    var html;
+    try {
+      html = await load(LOCAL, 'Loading app…');
+    } catch (e0) {
+      try {
+        html = await load(GOOD, 'Loading from CDN…');
+      } catch (e1) {
+        html = await load(FALLBACK, 'CDN slow — trying backup…');
+      }
+    }
+    if (sub) sub.textContent = 'Starting app…';
+    html = injectScripts(html);
     document.open();
     document.write(html);
     document.close();
   } catch (e) {
     document.getElementById('boot').innerHTML =
-      '<div style="color:#F87171;max-width:360px;text-align:center;padding:20px">Could not load ANGVEY.<br><small>' +
-      String(e.message || e) + '</small></div>';
+      '<div style="color:#F87171;max-width:360px;text-align:center;padding:20px">' +
+      'Could not load ANGVEY.<br><small>' + String(e.message || e) + '</small><br><br>' +
+      '<button onclick="location.reload()" style="padding:10px 16px;border-radius:10px;border:1px solid #3F3F46;background:#1C1C1F;color:#E4E4E7;cursor:pointer">Retry</button>' +
+      '</div>';
   }
 })();
 </script>

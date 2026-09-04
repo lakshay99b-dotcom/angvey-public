@@ -12,6 +12,24 @@
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
       ]
+    },
+    {
+      "source": "/(.*).js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
+      "source": "/angvey.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=60, stale-while-revalidate=300" }
+      ]
+    },
+    {
+      "source": "/angvey-app.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=3600" }
+      ]
     }
   ]
 }
