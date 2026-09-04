@@ -16,14 +16,22 @@ html,body{margin:0;height:100%;background:#0D0D0F;color:#A78BFA;font-family:syst
 <script>
 (async function () {
   var GOOD = 'https://raw.githubusercontent.com/lakshay99b-dotcom/angvey-public/91a4b3e92874cc8c44019b6d08ef9c9fd24cc212/angvey.html';
+  var CACHE_BUST = Date.now();
   try {
     var res = await fetch(GOOD);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var html = await res.text();
+    // Always inject enhancer scripts with cache-bust so Tools fix ships
+    var inject =
+      '\n<script src="./deep-research-app.js?v=' + CACHE_BUST + '"><\\/script>\n' +
+      '<script src="./dr-drawer.js?v=' + CACHE_BUST + '"><\\/script>\n';
     if (html.indexOf('deep-research-app.js') === -1) {
-      html = html.replace('</body>', '\n<script src="./deep-research-app.js"><\\/script>\n<script src="./dr-drawer.js"><\\/script>\n</body>');
-    } else if (html.indexOf('dr-drawer.js') === -1) {
-      html = html.replace('</body>', '\n<script src="./dr-drawer.js"><\\/script>\n</body>');
+      html = html.replace('</body>', inject + '</body>');
+    } else {
+      // Replace any existing deep-research script tags with cache-busted ones
+      html = html.replace(/<script[^>]*deep-research-app\.js[^>]*><\\/script>/gi, '');
+      html = html.replace(/<script[^>]*dr-drawer\.js[^>]*><\\/script>/gi, '');
+      html = html.replace('</body>', inject + '</body>');
     }
     document.open();
     document.write(html);

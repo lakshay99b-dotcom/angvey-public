@@ -1,31 +1,11 @@
 /**
- * ANGVEY Deep Research — mobile-safe Tools + Research controls
- * Rebuilds Tools button (original was a dead placeholder / hard to hit on phones)
+ * ANGVEY Deep Research
+ * Tools button fix: bind the real toolbar button, no open/close race on mobile
  */
 (function () {
   'use strict';
 
   const DR_CSS = `
-#angvey-tools-btn, #angvey-research-btn {
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  min-height:40px;min-width:40px;padding:0 12px;border-radius:10px;
-  border:1px solid #3F3F46;background:transparent;color:#A1A1AA;
-  font-size:.75rem;font-weight:600;cursor:pointer;
-  touch-action:manipulation;-webkit-tap-highlight-color:rgba(245,158,11,.25);
-  position:relative;z-index:50;pointer-events:auto !important;
-  -webkit-user-select:none;user-select:none;
-}
-#angvey-tools-btn:active, #angvey-research-btn:active {
-  transform:scale(.96);background:rgba(255,255,255,.06);
-}
-#angvey-tools-btn.on, #angvey-research-btn.on {
-  color:#FBBF24;border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.14);
-}
-#angvey-research-btn { min-width:44px;font-size:.9rem }
-
-/* Hide original inert Tools placeholder once we inject ours */
-button.dr-legacy-tools-hidden { display:none !important }
-
 #dr-tools-backdrop{
   display:none;position:fixed;inset:0;z-index:12000;
   background:rgba(0,0,0,.55);
@@ -72,6 +52,31 @@ button.dr-legacy-tools-hidden { display:none !important }
 }
 .dr-tool-item.on .ic{border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12)}
 
+#angvey-research-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:40px;min-width:40px;padding:0 10px;border-radius:10px;
+  border:1px solid #3F3F46;background:transparent;color:#A1A1AA;
+  font-size:.95rem;cursor:pointer;touch-action:manipulation;
+  -webkit-tap-highlight-color:rgba(245,158,11,.25);
+  position:relative;z-index:60;pointer-events:auto !important;
+}
+#angvey-research-btn.on{
+  color:#FBBF24;border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.14);
+}
+
+button.dr-tools-live{
+  position:relative !important;z-index:60 !important;
+  pointer-events:auto !important;
+  touch-action:manipulation !important;
+  min-height:40px !important;
+  -webkit-tap-highlight-color:rgba(245,158,11,.25);
+}
+button.dr-tools-live.dr-on{
+  color:#FBBF24 !important;
+  border-color:rgba(245,158,11,.5) !important;
+  background:rgba(245,158,11,.14) !important;
+}
+
 .dr-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;font-size:.65rem;font-weight:700;letter-spacing:.04em;background:rgba(245,158,11,.12);color:#FBBF24;border:1px solid rgba(245,158,11,.25);margin-bottom:6px}
 .dr-prog{background:#0F0F12;border:1px solid #1F1F23;border-radius:14px;padding:14px 16px;width:100%;max-width:640px}
 .dr-prog-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
@@ -108,7 +113,7 @@ button.dr-legacy-tools-hidden { display:none !important }
   window.__angveyDeepResearchOn = false;
   window.__angveyLastPapers = [];
   let drBusy = false;
-  let menuIgnoreCloseUntil = 0;
+  let lastToggleAt = 0;
 
   function openAngveyDB() {
     return new Promise((resolve, reject) => {
@@ -148,39 +153,36 @@ button.dr-legacy-tools-hidden { display:none !important }
     } catch (_) {}
   }
 
-  /** Find the original placeholder Tools button in the input toolbar */
-  function findLegacyToolsButton() {
-    const byId = document.getElementById('tools-btn');
-    if (byId && byId.id !== 'angvey-tools-btn') return byId;
-    return (
-      Array.from(document.querySelectorAll('#input-card button, .flex.items-center button')).find((b) => {
-        if (b.id === 'angvey-tools-btn' || b.id === 'angvey-research-btn') return false;
-        const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
-        return t === 'Tools' || /^Tools$/i.test(t);
-      }) || null
-    );
-  }
+  /** The original Tools button in the input toolbar (no id in source HTML). */
+  function findToolsButton() {
+    // Prefer already-tagged
+    let btn = document.querySelector('button.dr-tools-live');
+    if (btn) return btn;
 
-  function findToolbarSlot() {
-    // Prefer left cluster next to attach / web / bb
-    const attach = document.getElementById('attach-btn');
-    if (attach && attach.parentElement) return attach.parentElement;
-    const legacy = findLegacyToolsButton();
-    if (legacy && legacy.parentElement) return legacy.parentElement;
-    const inputCard = document.getElementById('input-card');
-    return inputCard || null;
+    const candidates = Array.from(document.querySelectorAll('button'));
+    btn = candidates.find((b) => {
+      if (b.id === 'angvey-research-btn' || b.id === 'tool-deep-research') return false;
+      const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
+      return t === 'Tools' || /^Tools$/i.test(t);
+    });
+    return btn || null;
   }
 
   function setResearchOn(on) {
     window.__angveyDeepResearchOn = !!on;
     const item = document.getElementById('tool-deep-research');
     if (item) item.classList.toggle('on', on);
-    const toolsBtn = document.getElementById('angvey-tools-btn');
-    if (toolsBtn) toolsBtn.classList.toggle('on', on);
+    const toolsBtn = findToolsButton();
+    if (toolsBtn) toolsBtn.classList.toggle('dr-on', on);
     const researchBtn = document.getElementById('angvey-research-btn');
     if (researchBtn) researchBtn.classList.toggle('on', on);
     const pill = document.getElementById('dr-mode-pill');
     if (pill) pill.classList.toggle('on', on);
+  }
+
+  function isMenuOpen() {
+    const menu = document.getElementById('dr-tools-menu');
+    return !!(menu && menu.classList.contains('open'));
   }
 
   function closeToolsMenu() {
@@ -193,7 +195,7 @@ button.dr-legacy-tools-hidden { display:none !important }
   function openToolsMenu() {
     const menu = document.getElementById('dr-tools-menu');
     const bd = document.getElementById('dr-tools-backdrop');
-    const toolsBtn = document.getElementById('angvey-tools-btn');
+    const toolsBtn = findToolsButton();
     if (!menu) return;
 
     const mobile = window.matchMedia('(max-width:860px)').matches;
@@ -214,9 +216,9 @@ button.dr-legacy-tools-hidden { display:none !important }
     }
 
     menu.classList.add('open');
-    menuIgnoreCloseUntil = Date.now() + 450;
   }
 
+  /** Debounced toggle — stops mobile touchend+click from opening then closing. */
   function toggleToolsMenu(e) {
     if (e) {
       try {
@@ -225,93 +227,72 @@ button.dr-legacy-tools-hidden { display:none !important }
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       } catch (_) {}
     }
-    const menu = document.getElementById('dr-tools-menu');
-    if (!menu) return;
-    if (menu.classList.contains('open')) closeToolsMenu();
+    const now = Date.now();
+    if (now - lastToggleAt < 400) return;
+    lastToggleAt = now;
+
+    if (isMenuOpen()) closeToolsMenu();
     else openToolsMenu();
   }
 
-  function ensureControls() {
+  function ensureUI() {
     injectCSS();
 
-    const slot = findToolbarSlot();
-    if (!slot) return false;
+    const toolsBtn = findToolsButton();
+    if (!toolsBtn) return false;
 
-    // Hide original non-working Tools placeholder
-    const legacy = findLegacyToolsButton();
-    if (legacy) {
-      legacy.classList.add('dr-legacy-tools-hidden');
-      legacy.setAttribute('aria-hidden', 'true');
-      legacy.tabIndex = -1;
-    }
+    // Harden existing Tools button — do NOT hide/replace it
+    toolsBtn.classList.add('dr-tools-live');
+    toolsBtn.type = 'button';
+    toolsBtn.style.pointerEvents = 'auto';
+    toolsBtn.style.zIndex = '60';
+    toolsBtn.style.position = 'relative';
+    toolsBtn.style.minHeight = '40px';
+    toolsBtn.style.touchAction = 'manipulation';
 
-    // New Tools button
-    let toolsBtn = document.getElementById('angvey-tools-btn');
-    if (!toolsBtn) {
-      toolsBtn = document.createElement('button');
-      toolsBtn.type = 'button';
-      toolsBtn.id = 'angvey-tools-btn';
-      toolsBtn.setAttribute('aria-label', 'Tools');
-      toolsBtn.innerHTML =
-        '<svg fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" style="flex-shrink:0"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>' +
-        '<span>Tools</span>';
-      if (legacy && legacy.parentElement === slot) {
-        slot.insertBefore(toolsBtn, legacy);
-      } else {
-        slot.appendChild(toolsBtn);
-      }
-
-      const onTools = (e) => toggleToolsMenu(e);
-      toolsBtn.addEventListener('click', onTools, true);
-      toolsBtn.addEventListener(
-        'touchend',
-        (e) => {
-          e.preventDefault();
-          onTools(e);
-        },
-        { passive: false, capture: true }
-      );
-    }
-
-    // Always-visible Research toggle (one tap)
-    let researchBtn = document.getElementById('angvey-research-btn');
-    if (!researchBtn) {
-      researchBtn = document.createElement('button');
-      researchBtn.type = 'button';
-      researchBtn.id = 'angvey-research-btn';
-      researchBtn.title = 'Deep Research on/off';
-      researchBtn.setAttribute('aria-label', 'Deep Research');
-      researchBtn.textContent = '🔬';
-      slot.insertBefore(researchBtn, toolsBtn.nextSibling);
-
-      const onResearch = (e) => {
-        try {
-          e.preventDefault();
-          e.stopPropagation();
-        } catch (_) {}
-        setResearchOn(!window.__angveyDeepResearchOn);
-        closeToolsMenu();
+    if (!toolsBtn.__drBound) {
+      toolsBtn.__drBound = true;
+      // Single path: click only (iOS synthesizes click after touch).
+      // Do NOT also bind touchend — that caused open-then-close.
+      toolsBtn.addEventListener('click', toggleToolsMenu, true);
+      // Backup for stubborn WebViews
+      toolsBtn.onclick = function (e) {
+        toggleToolsMenu(e);
+        return false;
       };
-      researchBtn.addEventListener('click', onResearch, true);
-      researchBtn.addEventListener(
-        'touchend',
-        (e) => {
-          e.preventDefault();
-          onResearch(e);
+    }
+
+    // Research one-tap toggle next to Tools
+    if (!document.getElementById('angvey-research-btn') && toolsBtn.parentElement) {
+      const rb = document.createElement('button');
+      rb.type = 'button';
+      rb.id = 'angvey-research-btn';
+      rb.title = 'Deep Research on/off';
+      rb.setAttribute('aria-label', 'Deep Research');
+      rb.textContent = '🔬';
+      toolsBtn.parentElement.insertBefore(rb, toolsBtn.nextSibling);
+      rb.addEventListener(
+        'click',
+        function (e) {
+          try {
+            e.preventDefault();
+            e.stopPropagation();
+          } catch (_) {}
+          setResearchOn(!window.__angveyDeepResearchOn);
+          closeToolsMenu();
         },
-        { passive: false, capture: true }
+        true
       );
     }
 
-    // Backdrop + menu on body
-    let bd = document.getElementById('dr-tools-backdrop');
-    if (!bd) {
-      bd = document.createElement('div');
+    // Backdrop
+    if (!document.getElementById('dr-tools-backdrop')) {
+      const bd = document.createElement('div');
       bd.id = 'dr-tools-backdrop';
       document.body.appendChild(bd);
       bd.addEventListener(
         'click',
-        (e) => {
+        function (e) {
           e.preventDefault();
           closeToolsMenu();
         },
@@ -319,9 +300,9 @@ button.dr-legacy-tools-hidden { display:none !important }
       );
     }
 
-    let menu = document.getElementById('dr-tools-menu');
-    if (!menu) {
-      menu = document.createElement('div');
+    // Menu on body (never clipped by input overflow)
+    if (!document.getElementById('dr-tools-menu')) {
+      const menu = document.createElement('div');
       menu.id = 'dr-tools-menu';
       menu.innerHTML =
         '<div class="dr-sheet-handle"></div>' +
@@ -334,7 +315,7 @@ button.dr-legacy-tools-hidden { display:none !important }
 
       document.getElementById('tool-deep-research').addEventListener(
         'click',
-        (e) => {
+        function (e) {
           e.preventDefault();
           e.stopPropagation();
           setResearchOn(!window.__angveyDeepResearchOn);
@@ -348,20 +329,20 @@ button.dr-legacy-tools-hidden { display:none !important }
       window.__drDocCloseBound = true;
       document.addEventListener(
         'click',
-        (e) => {
-          if (Date.now() < menuIgnoreCloseUntil) return;
+        function (e) {
+          if (Date.now() - lastToggleAt < 450) return;
           const menuEl = document.getElementById('dr-tools-menu');
-          const btn = document.getElementById('angvey-tools-btn');
+          const btn = findToolsButton();
           if (!menuEl || !menuEl.classList.contains('open')) return;
           if (menuEl.contains(e.target)) return;
           if (btn && (btn === e.target || btn.contains(e.target))) return;
+          if (e.target && e.target.id === 'angvey-research-btn') return;
           closeToolsMenu();
         },
         true
       );
     }
 
-    // Mode pill near send
     if (!document.getElementById('dr-mode-pill')) {
       const sendBtn = document.getElementById('send-btn');
       if (sendBtn && sendBtn.parentElement) {
@@ -492,14 +473,14 @@ button.dr-legacy-tools-hidden { display:none !important }
     let _raw = '';
     const stepNodes = [];
 
-    copyBtn.addEventListener('click', () => {
+    copyBtn.addEventListener('click', function () {
       if (!_raw) return;
-      navigator.clipboard.writeText(_raw).then(() => {
+      navigator.clipboard.writeText(_raw).then(function () {
         copyBtn.textContent = 'Copied!';
-        setTimeout(() => {
+        setTimeout(function () {
           copyBtn.textContent = 'Copy';
         }, 1600);
-      }).catch(() => {});
+      }).catch(function () {});
     });
 
     function addStep(text, state) {
@@ -536,7 +517,7 @@ button.dr-legacy-tools-hidden { display:none !important }
 
     function showPapers(papers) {
       papersEl.innerHTML = '';
-      (papers || []).slice(0, 12).forEach((p, i) => {
+      (papers || []).slice(0, 12).forEach(function (p, i) {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'dr-paper-chip';
@@ -546,7 +527,7 @@ button.dr-legacy-tools-hidden { display:none !important }
           ']</span><span class="ttl">' +
           esc(p.title || 'Untitled') +
           '</span>';
-        chip.addEventListener('click', () => {
+        chip.addEventListener('click', function () {
           if (typeof window.__angveyOpenPaper === 'function') window.__angveyOpenPaper(p);
         });
         papersEl.appendChild(chip);
@@ -563,22 +544,22 @@ button.dr-legacy-tools-hidden { display:none !important }
     addStep('Formulating academic search from: “' + truncate(query, 72) + '”', 'live');
 
     return {
-      completeLive() {
-        stepNodes.forEach((n) => {
+      completeLive: function () {
+        stepNodes.forEach(function (n) {
           if (n.classList.contains('live')) setStepState(n, 'done');
         });
       },
-      next(text) {
+      next: function (text) {
         this.completeLive();
         return addStep(text, 'live');
       },
-      showPapers,
-      finishHeader,
-      set(text, cursor) {
+      showPapers: showPapers,
+      finishHeader: finishHeader,
+      set: function (text, cursor) {
         _raw = text || '';
         answerEl.classList.remove('hide');
         actsEl.classList.remove('hide');
-        let html = _raw;
+        var html = _raw;
         if (typeof marked !== 'undefined') {
           try {
             html = marked.parse(_raw);
@@ -602,7 +583,7 @@ button.dr-legacy-tools-hidden { display:none !important }
         } catch (_) {}
         scrollChat();
       },
-      setError(msg) {
+      setError: function (msg) {
         answerEl.classList.remove('hide');
         answerEl.classList.add('err');
         answerEl.innerHTML = msg;
@@ -612,24 +593,28 @@ button.dr-legacy-tools-hidden { display:none !important }
 
   async function runDeepResearch(text) {
     if (!text || drBusy) return;
-    const inputEl = document.getElementById('ci');
+    var inputEl = document.getElementById('ci');
 
-    let sessionId = null;
+    var sessionId = null;
     try {
       if (window.activeId) sessionId = window.activeId;
     } catch (_) {}
     if (!sessionId) sessionId = Date.now().toString();
 
-    const title = text.length > 46 ? text.slice(0, 43) + '…' : text;
-    let messages = [];
+    var title = text.length > 46 ? text.slice(0, 43) + '…' : text;
+    var messages = [];
 
     try {
-      const db = await openAngveyDB();
-      const existing = await new Promise((res) => {
-        const tx = db.transaction('sessions', 'readonly');
-        const req = tx.objectStore('sessions').get(sessionId);
-        req.onsuccess = () => res(req.result || null);
-        req.onerror = () => res(null);
+      var db = await openAngveyDB();
+      var existing = await new Promise(function (res) {
+        var tx = db.transaction('sessions', 'readonly');
+        var req = tx.objectStore('sessions').get(sessionId);
+        req.onsuccess = function () {
+          res(req.result || null);
+        };
+        req.onerror = function () {
+          res(null);
+        };
       });
       if (existing && Array.isArray(existing.messages)) messages = existing.messages.slice();
     } catch (_) {}
@@ -643,7 +628,7 @@ button.dr-legacy-tools-hidden { display:none !important }
     addUserBubble(text);
 
     messages.push({ role: 'user', content: text });
-    const sess = {
+    var sess = {
       id: sessionId,
       title: title,
       messages: messages.slice(),
@@ -655,18 +640,22 @@ button.dr-legacy-tools-hidden { display:none !important }
       window.activeId = sessionId;
     } catch (_) {}
 
-    const progress = addDeepResearchProgress(text);
-    let data = { ctx: '', papers: [], counts: {} };
+    var progress = addDeepResearchProgress(text);
+    var data = { ctx: '', papers: [], counts: {} };
 
     try {
       progress.next('Querying arXiv API for matching preprints');
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise(function (r) {
+        setTimeout(r, 150);
+      });
       progress.next('Querying Semantic Scholar graph');
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise(function (r) {
+        setTimeout(r, 100);
+      });
       progress.next('Querying OpenAlex open knowledge base');
 
       data = await deepResearchSearch(text);
-      const counts = data.counts || {};
+      var counts = data.counts || {};
       progress.completeLive();
       progress.next(
         'Fetched ' +
@@ -678,9 +667,7 @@ button.dr-legacy-tools-hidden { display:none !important }
           ' OpenAlex'
       );
       progress.completeLive();
-      progress.next(
-        'Ranking ' + (counts.unique || (data.papers || []).length) + ' unique papers'
-      );
+      progress.next('Ranking ' + (counts.unique || (data.papers || []).length) + ' unique papers');
       window.__angveyLastPapers = data.papers || [];
       progress.showPapers(data.papers || []);
       progress.completeLive();
@@ -691,17 +678,17 @@ button.dr-legacy-tools-hidden { display:none !important }
       progress.finishHeader(false, 0);
     }
 
-    const ctx = data.ctx || '';
-    const grounded = ctx
+    var ctx = data.ctx || '';
+    var grounded = ctx
       ? text +
         '\n\n[Deep Research academic context — ground your answer in these papers only:]\n' +
         ctx
       : text;
 
-    let fullText = '';
+    var fullText = '';
     try {
-      const apiMessages = messages.slice(0, -1).concat([{ role: 'user', content: grounded }]);
-      const res = await fetch('/api/chat', {
+      var apiMessages = messages.slice(0, -1).concat([{ role: 'user', content: grounded }]);
+      var res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -715,43 +702,47 @@ button.dr-legacy-tools-hidden { display:none !important }
               content:
                 'You are ANGVEY, an academic research partner. When Deep Research context is present, ground every claim in those papers and cite them as [1], [2], etc. Prefer theories that appear in the retrieved abstracts. Use clear markdown. If papers do not support a claim, say so.',
             },
-            ...apiMessages,
-          ],
+          ].concat(apiMessages),
         }),
       });
 
       if (!res.ok) {
-        let m = 'HTTP ' + res.status;
+        var m = 'HTTP ' + res.status;
         try {
-          const j = await res.json();
-          m = j?.error?.message || j?.error || m;
+          var j = await res.json();
+          m = (j && j.error && j.error.message) || (j && j.error) || m;
         } catch (_) {}
         throw new Error(m);
       }
 
       progress.set('', true);
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buf = '';
       outer: while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() ?? '';
-        for (const line of lines) {
-          const t = line.trim();
-          if (!t.startsWith('data:')) continue;
-          const raw = t.slice(5).trim();
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+        var lines = buf.split('\n');
+        buf = lines.pop() || '';
+        for (var li = 0; li < lines.length; li++) {
+          var line = lines[li].trim();
+          if (line.indexOf('data:') !== 0) continue;
+          var raw = line.slice(5).trim();
           if (raw === '[DONE]') break outer;
           try {
-            const o = JSON.parse(raw);
-            const d = o?.choices?.[0]?.delta?.content;
+            var o = JSON.parse(raw);
+            var d =
+              o &&
+              o.choices &&
+              o.choices[0] &&
+              o.choices[0].delta &&
+              o.choices[0].delta.content;
             if (d) {
               fullText += d;
               progress.set(fullText, true);
             }
-            if (o?.choices?.[0]?.finish_reason) break outer;
+            if (o && o.choices && o.choices[0] && o.choices[0].finish_reason) break outer;
           } catch (_) {}
         }
       }
@@ -787,11 +778,11 @@ button.dr-legacy-tools-hidden { display:none !important }
 
   function patchSend() {
     if (window.__angveyDRPatched) return true;
-    const orig = getSendFn();
+    var orig = getSendFn();
     if (!orig) return false;
 
-    const wrapped = async function (rawText) {
-      const text = (rawText || (document.getElementById('ci') || {}).value || '').trim();
+    var wrapped = async function (rawText) {
+      var text = (rawText || (document.getElementById('ci') || {}).value || '').trim();
       if (!text) return;
       if (window.__angveyDeepResearchOn) return runDeepResearch(text);
       return orig.apply(this, arguments);
@@ -809,14 +800,14 @@ button.dr-legacy-tools-hidden { display:none !important }
   }
 
   function hookInputDirectly() {
-    const sendBtn = document.getElementById('send-btn');
-    const inputEl = document.getElementById('ci');
+    var sendBtn = document.getElementById('send-btn');
+    var inputEl = document.getElementById('ci');
     if (!sendBtn || sendBtn.__drHooked) return;
     sendBtn.__drHooked = true;
 
     sendBtn.addEventListener(
       'click',
-      (e) => {
+      function (e) {
         if (!window.__angveyDeepResearchOn) return;
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -829,7 +820,7 @@ button.dr-legacy-tools-hidden { display:none !important }
       inputEl.__drHooked = true;
       inputEl.addEventListener(
         'keydown',
-        (e) => {
+        function (e) {
           if (!window.__angveyDeepResearchOn) return;
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -844,32 +835,32 @@ button.dr-legacy-tools-hidden { display:none !important }
 
   function boot() {
     injectCSS();
-    ensureControls();
+    ensureUI();
     hookInputDirectly();
 
-    let tries = 0;
-    const iv = setInterval(() => {
-      ensureControls();
+    var tries = 0;
+    var iv = setInterval(function () {
+      ensureUI();
       hookInputDirectly();
-      if (patchSend() || ++tries > 60) clearInterval(iv);
+      if (patchSend() || ++tries > 80) clearInterval(iv);
     }, 200);
 
     if (!document.querySelector('script[src*="dr-drawer"]')) {
-      const s = document.createElement('script');
+      var s = document.createElement('script');
       s.src = './dr-drawer.js';
       document.body.appendChild(s);
     }
 
     if (!document.getElementById('katex-css')) {
-      const l = document.createElement('link');
+      var l = document.createElement('link');
       l.id = 'katex-css';
       l.rel = 'stylesheet';
       l.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
       document.head.appendChild(l);
-      const s1 = document.createElement('script');
+      var s1 = document.createElement('script');
       s1.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js';
       document.body.appendChild(s1);
-      const s2 = document.createElement('script');
+      var s2 = document.createElement('script');
       s2.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js';
       document.body.appendChild(s2);
     }
